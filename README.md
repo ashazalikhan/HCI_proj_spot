@@ -6,7 +6,9 @@ SPOT is an HCI mini-project gym tracker: it replaces a static note in your Notes
 
 ## Live demo
 
-Deploy this repo on [Vercel](https://vercel.com) (see [Deploy](#deploy)) or run locally with `npm run dev`.
+**Production:** [spot-ashaz.vercel.app](https://spot-ashaz.vercel.app)
+
+Or run locally with `npm run dev`.
 
 ## Why SPOT
 
@@ -46,7 +48,7 @@ Most gym trackers optimize for **data entry**—dense tables and keyboards mid-w
 **Requirements:** Node.js 20+ (LTS recommended)
 
 ```bash
-git clone https://github.com/ashazalikhan/spot.git
+git clone https://github.com/ashazalikhan/HCI_proj_spot.git
 cd spot
 npm install
 npm run dev
@@ -77,7 +79,7 @@ npx vercel          # preview
 npx vercel --prod   # production
 ```
 
-Or connect [github.com/ashazalikhan/spot](https://github.com/ashazalikhan/spot) in the Vercel dashboard for Git-based deploys on every push.
+Or connect [github.com/ashazalikhan/HCI_proj_spot](https://github.com/ashazalikhan/HCI_proj_spot) in the Vercel dashboard for Git-based deploys on every push.
 
 ## Project docs
 
