@@ -173,6 +173,77 @@ describe('repairAppData', () => {
     expect(result.changed).toBe(false)
     expect(result.data.sessions).toHaveLength(2)
   })
+
+  it('turns an expired resting timer into rest-over on boot-style repair', () => {
+    const data = base()
+    data.sessions = [
+      {
+        id: 'open',
+        routineId: 'push',
+        routineName: 'Push Day',
+        isSample: false,
+        startedAt: '2026-11-05T09:00:00.000Z',
+        exercises: [
+          {
+            routineExerciseId: 'bench',
+            name: 'Bench Press',
+            targetSets: 4,
+            targetReps: 8,
+            restSeconds: 90,
+            sets: [set(60, 8)],
+          },
+        ],
+      },
+    ]
+    data.active = active({
+      sessionId: 'open',
+      exerciseIndex: 0,
+      setIndex: 1,
+      phase: 'resting',
+      restEndsAt: Date.now() - 60_000,
+      restTotalMs: 90_000,
+    })
+    const result = repairAppData(data)
+    expect(result.changed).toBe(true)
+    expect(result.notice).toBeNull()
+    expect(result.data.active?.phase).toBe('rest-over')
+    expect(result.data.active?.restEndsAt).toBeUndefined()
+    expect(result.data.sessions[0]?.exercises[0]?.sets).toHaveLength(1)
+  })
+
+  it('leaves a future rest timer resting', () => {
+    const data = base()
+    data.sessions = [
+      {
+        id: 'open',
+        routineId: 'push',
+        routineName: 'Push Day',
+        isSample: false,
+        startedAt: '2026-11-05T09:00:00.000Z',
+        exercises: [
+          {
+            routineExerciseId: 'bench',
+            name: 'Bench Press',
+            targetSets: 4,
+            targetReps: 8,
+            restSeconds: 90,
+            sets: [set(60, 8)],
+          },
+        ],
+      },
+    ]
+    data.active = active({
+      sessionId: 'open',
+      exerciseIndex: 0,
+      setIndex: 1,
+      phase: 'resting',
+      restEndsAt: Date.now() + 60_000,
+      restTotalMs: 90_000,
+    })
+    const result = repairAppData(data)
+    expect(result.changed).toBe(false)
+    expect(result.data.active?.phase).toBe('resting')
+  })
 })
 
 describe('attach-active', () => {

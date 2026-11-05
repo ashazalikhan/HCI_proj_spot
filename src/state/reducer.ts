@@ -1,5 +1,6 @@
 import { createId } from './ids'
 import { draftForCursor } from './history'
+import { adjustRestTiming, toRestOverActive } from './rest'
 import { cursorFromLoggedSets, unfinishedSessions } from './repair'
 import { createSampleRoutine } from './seed'
 import type { ActiveState, AppData, LoggedSet, Session } from './types'
@@ -36,6 +37,8 @@ export type Action =
   | { type: 'skip-exercise' }
   | { type: 'edit-set'; setId: string; weightKg: number; reps: number }
   | { type: 'start-set' }
+  | { type: 'expire-rest'; now: number }
+  | { type: 'adjust-rest'; deltaMs: number; now: number }
 
 const NAME_LIMIT = 80
 
@@ -142,6 +145,10 @@ export function reducer(state: AppData, action: Action): AppData {
       return editSet(state, action.setId, action.weightKg, action.reps)
     case 'start-set':
       return startSet(state)
+    case 'expire-rest':
+      return expireRest(state, action.now)
+    case 'adjust-rest':
+      return adjustRest(state, action.deltaMs, action.now)
     default:
       return state
   }
@@ -439,6 +446,31 @@ function startSet(state: AppData): AppData {
       phase: 'logging',
       ...(active.lastCommittedSetId ? { lastCommittedSetId: active.lastCommittedSetId } : {}),
       draft: active.draft,
+    },
+  }
+}
+
+function expireRest(state: AppData, now: number): AppData {
+  const active = state.active
+  if (!active || active.phase !== 'resting') return state
+  if (active.restEndsAt !== undefined && active.restEndsAt > now) return state
+  return { ...state, active: toRestOverActive(active) }
+}
+
+function adjustRest(state: AppData, deltaMs: number, now: number): AppData {
+  const active = state.active
+  if (!active || active.phase !== 'resting') return state
+  if (active.restEndsAt === undefined || active.restTotalMs === undefined) return state
+  const next = adjustRestTiming(active.restEndsAt, active.restTotalMs, deltaMs, now)
+  if (next.expired) {
+    return { ...state, active: toRestOverActive(active) }
+  }
+  return {
+    ...state,
+    active: {
+      ...active,
+      restEndsAt: next.restEndsAt,
+      restTotalMs: next.restTotalMs,
     },
   }
 }

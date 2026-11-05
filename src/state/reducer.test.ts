@@ -444,3 +444,66 @@ describe('logging actions', () => {
     expect(logging.sessions[0]?.exercises[0]?.sets).toHaveLength(1)
   })
 })
+
+describe('rest timer actions', () => {
+  function restingAt(now: number, remainingMs: number, totalMs = 90_000) {
+    const base = reducer(loggingState(), { type: 'commit-set' })
+    if (!base.active) throw new Error('expected resting active')
+    return {
+      ...base,
+      active: {
+        ...base.active,
+        restEndsAt: now + remainingMs,
+        restTotalMs: totalMs,
+      },
+    }
+  }
+
+  it('expires a finished rest without logging another set', () => {
+    const now = 1_000_000
+    const resting = restingAt(now, 0)
+    const setsBefore = resting.sessions[0]?.exercises[0]?.sets.length
+    const next = reducer(resting, { type: 'expire-rest', now })
+    expect(next.active?.phase).toBe('rest-over')
+    expect(next.active?.restEndsAt).toBeUndefined()
+    expect(next.sessions[0]?.exercises[0]?.sets).toHaveLength(setsBefore ?? 0)
+    expect(reducer(next, { type: 'expire-rest', now })).toBe(next)
+  })
+
+  it('ignores expire while time remains', () => {
+    const now = 1_000_000
+    const resting = restingAt(now, 5_000)
+    expect(reducer(resting, { type: 'expire-rest', now })).toBe(resting)
+  })
+
+  it('adjust-rest ignores rest-over and does not add sets', () => {
+    const now = 1_000_000
+    const over = reducer(restingAt(now, 0), { type: 'expire-rest', now })
+    expect(reducer(over, { type: 'adjust-rest', deltaMs: 15_000, now })).toBe(over)
+  })
+
+  it('visible-style subtract to zero expires in one action', () => {
+    const now = 2_000_000
+    const resting = restingAt(now, 10_000, 90_000)
+    const next = reducer(resting, { type: 'adjust-rest', deltaMs: -15_000, now })
+    expect(next.active?.phase).toBe('rest-over')
+    expect(next.sessions[0]?.exercises[0]?.sets).toHaveLength(1)
+  })
+
+  it('start-set from rest-over does not add a set', () => {
+    const now = 3_000_000
+    const over = reducer(restingAt(now, 0), { type: 'expire-rest', now })
+    const logging = reducer(over, { type: 'start-set' })
+    expect(logging.active?.phase).toBe('logging')
+    expect(logging.sessions[0]?.exercises[0]?.sets).toHaveLength(1)
+  })
+
+  it('zero-duration commit stores a zero timer', () => {
+    const current = loggingState()
+    current.sessions[0]!.exercises[0]!.restSeconds = 0
+    const next = reducer(current, { type: 'commit-set' })
+    expect(next.active?.phase).toBe('resting')
+    expect(next.active?.restTotalMs).toBe(0)
+    expect(next.active?.restEndsAt).toEqual(expect.any(Number))
+  })
+})

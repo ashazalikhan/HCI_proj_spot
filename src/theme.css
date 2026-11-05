@@ -460,3 +460,148 @@ html[data-reduce-motion='on'] *::after {
   transition-duration: 0.01ms !important;
   scroll-behavior: auto !important;
 }
+
+.shell-rest {
+  background: var(--rest-bg);
+  min-height: 100vh;
+}
+
+.shell-rest .topbar {
+  background: linear-gradient(var(--rest-bg), transparent);
+}
+
+.session-flow {
+  animation: session-flow-in 200ms ease-out;
+}
+
+@keyframes session-flow-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.rest-screen {
+  display: grid;
+  gap: var(--space-4);
+  justify-items: center;
+  text-align: center;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding-bottom: calc(160px + env(safe-area-inset-bottom));
+}
+
+.rest-label {
+  margin: 0;
+  font-size: 13px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.rest-over-line {
+  margin: 0;
+  font-size: 17px;
+  color: var(--text);
+}
+
+.rest-hero {
+  position: relative;
+  container-type: inline-size;
+  container-name: rest-hero;
+  width: min(100%, 17.5rem);
+  max-width: 100%;
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  padding-inline: var(--space-4);
+}
+
+.rest-ring {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.rest-ring-track,
+.rest-ring-progress {
+  fill: none;
+  stroke-width: 3;
+}
+
+.rest-ring-track {
+  stroke: var(--surface-2);
+}
+
+.rest-ring-progress {
+  stroke: var(--text-dim);
+}
+
+.rest-numerals {
+  margin: 0;
+  width: 100%;
+  max-width: 100%;
+  padding-inline: var(--space-2);
+  box-sizing: border-box;
+  font-size: min(
+    13.75rem,
+    calc((100cqi - 2 * var(--space-4)) / var(--rest-em-width, 4.2)),
+    calc(100cqi * 0.58)
+  );
+  line-height: 1;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.rest-next {
+  margin: 0;
+  font-size: 17px;
+  max-width: 28rem;
+}
+
+.rest-last-set {
+  width: 100%;
+  max-width: 28rem;
+  justify-self: stretch;
+  text-align: left;
+}
+
+.rest-dock {
+  position: fixed;
+  z-index: 10;
+  left: 50%;
+  bottom: 0;
+  width: min(100%, 32rem);
+  transform: translateX(-50%);
+  padding: var(--space-3) var(--space-4) calc(var(--space-4) + env(safe-area-inset-bottom));
+  background: linear-gradient(transparent, var(--rest-bg) 30%);
+}
+
+.rest-adjust-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-2);
+}
+
+.outline-button {
+  min-height: 48px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--text-dim);
+  border-radius: var(--radius-card);
+  background: transparent;
+  color: var(--text);
+}
+
+.outline-button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}

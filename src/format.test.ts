@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { displayWeight, formatSpotDate, lbInputToKg, resolveTypedWeight, LB_PER_KG } from './format'
+import { displayWeight, formatRestCountdown, formatSpotDate, lbInputToKg, resolveTypedWeight, restNumeralEmWidth, LB_PER_KG } from './format'
 
 describe('formatSpotDate', () => {
   it('uses the short en-GB pattern', () => {
@@ -23,5 +23,19 @@ describe('weight conversion', () => {
     expect(resolveTypedWeight('--', 20, 'kg')).toBeNull()
     expect(resolveTypedWeight('nope', 20, 'kg')).toBe('invalid')
     expect(resolveTypedWeight('-1', 20, 'kg')).toBe('invalid')
+  })
+})
+
+describe('formatRestCountdown', () => {
+  it('formats minutes and zero-padded seconds', () => {
+    expect(formatRestCountdown(90_500)).toBe('1:31')
+    expect(formatRestCountdown(0)).toBe('0:00')
+  })
+})
+
+describe('restNumeralEmWidth', () => {
+  it('grows with longer countdown strings', () => {
+    expect(restNumeralEmWidth('Go')).toBeLessThan(restNumeralEmWidth('1:28'))
+    expect(restNumeralEmWidth('1:28')).toBeLessThan(restNumeralEmWidth('600:00'))
   })
 })

@@ -1,4 +1,5 @@
 import { draftForCursor } from './history'
+import { restRemainingMs, toRestOverActive } from './rest'
 import type { ActiveState, AppData, Session } from './types'
 
 export interface RepairResult {
@@ -50,6 +51,19 @@ export function repairAppData(data: AppData): RepairResult {
       data: { ...data, active: null },
       notice:
         "The in-progress pointer didn't match an open workout, so it was cleared. Routines and history were kept.",
+      changed: true,
+    }
+  }
+
+  const now = Date.now()
+  if (
+    active.phase === 'resting' &&
+    active.restEndsAt !== undefined &&
+    restRemainingMs(active.restEndsAt, now) === 0
+  ) {
+    return {
+      data: { ...data, active: toRestOverActive(active) },
+      notice: null,
       changed: true,
     }
   }

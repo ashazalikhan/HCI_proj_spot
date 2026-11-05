@@ -87,3 +87,21 @@ export function formatSpotDateString(iso: string): string {
   if (Number.isNaN(date.getTime())) return iso
   return formatSpotDate(date)
 }
+
+/** Tabular rest countdown m:ss for hero numerals. */
+export function formatRestCountdown(remainingMs: number): string {
+  const totalSec = Math.ceil(Math.max(0, remainingMs) / 1000)
+  const minutes = Math.floor(totalSec / 60)
+  const seconds = totalSec % 60
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`
+}
+
+/** Tabular em-width estimate for sizing the rest hero numerals to the ring. */
+export function restNumeralEmWidth(text: string): number {
+  let em = 0
+  for (const char of text) {
+    em += char === ':' ? 0.44 : 0.6
+  }
+  return Math.max(em, 1.15)
+}
+
