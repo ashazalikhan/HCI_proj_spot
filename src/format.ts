@@ -55,7 +55,7 @@ export function stepWeight(
   unit: 'kg' | 'lb',
   fine: boolean,
 ): number {
-  const step = unit === 'lb' ? (fine ? 1 : 5) : fine ? 0.5 : 2.5
+  const step = unit === 'lb' ? (fine ? 1 : 5) : 2.5
   if (kg === null || !Number.isFinite(kg)) {
     return direction < 0 ? 0 : unit === 'lb' ? lbInputToKg(step) : step
   }
@@ -86,6 +86,39 @@ export function formatSpotDateString(iso: string): string {
   const date = new Date(iso)
   if (Number.isNaN(date.getTime())) return iso
   return formatSpotDate(date)
+}
+
+/** Elapsed time between session start and finish; blank when timestamps are invalid. */
+export function formatSessionDuration(startedAt: string, finishedAt: string | undefined): string {
+  if (!finishedAt) return ''
+  const start = Date.parse(startedAt)
+  const end = Date.parse(finishedAt)
+  if (Number.isNaN(start) || Number.isNaN(end) || end < start) return ''
+  const totalSec = Math.floor((end - start) / 1000)
+  const hours = Math.floor(totalSec / 3600)
+  const minutes = Math.floor((totalSec % 3600) / 60)
+  const seconds = totalSec % 60
+  if (hours > 0) return `${hours}h ${minutes}m`
+  if (minutes > 0 && seconds > 0) return `${minutes}m ${seconds}s`
+  if (minutes > 0) return `${minutes}m`
+  return `${seconds}s`
+}
+
+/** Sum of weight × reps for display; stored weights stay kg. */
+export function displaySessionVolume(
+  sets: { weightKg: number; reps: number }[],
+  unit: 'kg' | 'lb',
+): string {
+  let total = 0
+  for (const set of sets) {
+    if (unit === 'lb') {
+      total += Number(weightNumber(set.weightKg, 'lb')) * set.reps
+    } else {
+      total += set.weightKg * set.reps
+    }
+  }
+  const rounded = unit === 'lb' ? Math.round(total) : Math.round(total * 10) / 10
+  return `${rounded} ${unit}`
 }
 
 /** Tabular rest countdown m:ss for hero numerals. */

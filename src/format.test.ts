@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { displayWeight, formatRestCountdown, formatSpotDate, lbInputToKg, resolveTypedWeight, restNumeralEmWidth, LB_PER_KG } from './format'
+import { displayWeight, formatRestCountdown, formatSpotDate, lbInputToKg, resolveTypedWeight, restNumeralEmWidth, stepWeight, LB_PER_KG } from './format'
 
 describe('formatSpotDate', () => {
   it('uses the short en-GB pattern', () => {
@@ -23,6 +23,22 @@ describe('weight conversion', () => {
     expect(resolveTypedWeight('--', 20, 'kg')).toBeNull()
     expect(resolveTypedWeight('nope', 20, 'kg')).toBe('invalid')
     expect(resolveTypedWeight('-1', 20, 'kg')).toBe('invalid')
+  })
+})
+
+describe('stepWeight', () => {
+  it('steps kg by 2.5 on main and sheet', () => {
+    expect(stepWeight(20, 1, 'kg', false)).toBe(22.5)
+    expect(stepWeight(20, 1, 'kg', true)).toBe(22.5)
+    expect(stepWeight(20, -1, 'kg', true)).toBe(17.5)
+  })
+
+  it('steps lb by 5 on main and 1 in the sheet', () => {
+    const start = lbInputToKg(135)
+    const mainUp = stepWeight(start, 1, 'lb', false)
+    expect(displayWeight(mainUp, 'lb')).toBe('140.0 lb')
+    const fineUp = stepWeight(start, 1, 'lb', true)
+    expect(displayWeight(fineUp, 'lb')).toBe('136.0 lb')
   })
 })
 

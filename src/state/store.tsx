@@ -32,6 +32,7 @@ interface StoreValue {
   exportRaw: (raw: string) => void
   importText: (text: string) => { ok: true } | { ok: false; message: string }
   startFresh: () => { ok: true } | { ok: false; message: string }
+  deleteAll: () => { ok: true } | { ok: false; message: string }
 }
 
 const StoreContext = createContext<StoreValue | null>(null)
@@ -178,6 +179,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (notice) setRepairNotice(notice)
   }
 
+  function replaceAllData(next: AppData): { ok: true } | { ok: false; message: string } {
+    const read = currentRaw(localStorage)
+    if (read.status === 'error') {
+      return { ok: false, message: "Can't read the current save, so nothing was replaced." }
+    }
+    const previous = read.status === 'ok' ? read.raw : null
+    const replaced = replaceStoredData(localStorage, next, previous)
+    if (!replaced.ok) return replaced
+    installData(next, replaced.raw, null)
+    return { ok: true }
+  }
+
   function importText(text: string): { ok: true } | { ok: false; message: string } {
     const validated = validateAppData(text)
     if (!validated.ok) return { ok: false, message: validated.reason }
@@ -193,17 +206,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return { ok: true }
   }
 
+  function deleteAll(): { ok: true } | { ok: false; message: string } {
+    return replaceAllData(reducer(dataRef.current, { type: 'delete-all' }))
+  }
+
   function startFresh(): { ok: true } | { ok: false; message: string } {
-    const read = currentRaw(localStorage)
-    if (read.status === 'error') {
-      return { ok: false, message: "Can't read the current save, so nothing was replaced." }
-    }
-    const previous = read.status === 'ok' ? read.raw : null
-    const fresh = createInitialData()
-    const replaced = replaceStoredData(localStorage, fresh, previous)
-    if (!replaced.ok) return replaced
-    installData(fresh, replaced.raw, null)
-    return { ok: true }
+    return replaceAllData(createInitialData())
   }
 
   const value: StoreValue = {
@@ -218,6 +226,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     exportRaw,
     importText,
     startFresh,
+    deleteAll,
   }
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>

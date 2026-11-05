@@ -507,3 +507,116 @@ describe('rest timer actions', () => {
     expect(next.active?.restEndsAt).toEqual(expect.any(Number))
   })
 })
+
+describe('step 4 actions', () => {
+  it('deleting the sample routine removes matching sample sessions and keeps real sessions', () => {
+    const data: AppData = {
+      version: 1,
+      routines: [
+        { id: 'sample-push-day', name: 'Sample Push Day', isSample: true, exercises: [] },
+        { id: 'push', name: 'Push Day', isSample: false, exercises: [] },
+      ],
+      sessions: [
+        {
+          id: 'sample-session',
+          routineId: 'sample-push-day',
+          routineName: 'Sample Push Day',
+          isSample: true,
+          startedAt: '2026-11-01T09:00:00.000Z',
+          finishedAt: '2026-11-01T10:00:00.000Z',
+          exercises: [],
+        },
+        {
+          id: 'real-session',
+          routineId: 'push',
+          routineName: 'Push Day',
+          isSample: false,
+          startedAt: '2026-11-02T09:00:00.000Z',
+          finishedAt: '2026-11-02T10:00:00.000Z',
+          exercises: [],
+        },
+      ],
+      active: null,
+      settings: { ...defaultSettings },
+    }
+    const next = reducer(data, { type: 'delete-routine', routineId: 'sample-push-day' })
+    expect(next.routines.some((routine) => routine.isSample)).toBe(false)
+    expect(next.sessions.map((session) => session.id)).toEqual(['real-session'])
+  })
+
+  it('update-settings changes display settings without rewriting logged weights', () => {
+    const current = state()
+    const weight = current.sessions[0]?.exercises[0]?.sets[0]?.weightKg
+    const next = reducer(current, { type: 'update-settings', settings: { unit: 'lb' } })
+    expect(next.settings.unit).toBe('lb')
+    expect(next.sessions[0]?.exercises[0]?.sets[0]?.weightKg).toBe(weight)
+  })
+
+  it('set-session-note updates a finished session in place', () => {
+    const finished: Session = {
+      id: 'done',
+      routineId: 'push',
+      routineName: 'Push Day',
+      isSample: false,
+      startedAt: '2026-11-05T09:00:00.000Z',
+      finishedAt: '2026-11-05T10:00:00.000Z',
+      exercises: [],
+    }
+    const data: AppData = {
+      version: 1,
+      routines: [],
+      sessions: [finished],
+      active: null,
+      settings: { ...defaultSettings },
+    }
+    const noted = reducer(data, { type: 'set-session-note', sessionId: 'done', note: '  felt good  ' })
+    expect(noted.sessions).toHaveLength(1)
+    expect(noted.sessions[0]?.note).toBe('felt good')
+    expect(noted.sessions[0]?.finishedAt).toBe(finished.finishedAt)
+    const cleared = reducer(noted, { type: 'set-session-note', sessionId: 'done', note: '   ' })
+    expect(cleared.sessions[0]?.note).toBeUndefined()
+  })
+
+  it('edit-set works on a finished session without active', () => {
+    const setId = 'set-1'
+    const data: AppData = {
+      version: 1,
+      routines: [],
+      sessions: [
+        {
+          id: 'done',
+          routineId: 'push',
+          routineName: 'Push Day',
+          isSample: false,
+          startedAt: '2026-11-05T09:00:00.000Z',
+          finishedAt: '2026-11-05T10:00:00.000Z',
+          exercises: [
+            {
+              routineExerciseId: 'bench',
+              name: 'Bench',
+              targetSets: 4,
+              targetReps: 8,
+              restSeconds: 90,
+              sets: [{ id: setId, weightKg: 50, reps: 8, doneAt: '2026-11-05T09:10:00.000Z' }],
+            },
+          ],
+        },
+      ],
+      active: null,
+      settings: { ...defaultSettings },
+    }
+    const edited = reducer(data, { type: 'edit-set', setId, weightKg: 52.5, reps: 7 })
+    expect(edited.sessions[0]?.exercises[0]?.sets[0]).toMatchObject({
+      id: setId,
+      weightKg: 52.5,
+      reps: 7,
+    })
+  })
+
+  it('delete-all returns the seed document', () => {
+    const next = reducer(state(), { type: 'delete-all' })
+    expect(next.sessions).toEqual([])
+    expect(next.active).toBeNull()
+    expect(next.routines.some((routine) => routine.isSample)).toBe(true)
+  })
+})

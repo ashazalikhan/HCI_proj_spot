@@ -2,8 +2,8 @@ import { createId } from './ids'
 import { draftForCursor } from './history'
 import { adjustRestTiming, toRestOverActive } from './rest'
 import { cursorFromLoggedSets, unfinishedSessions } from './repair'
-import { createSampleRoutine } from './seed'
-import type { ActiveState, AppData, LoggedSet, Session } from './types'
+import { createInitialData, createSampleRoutine } from './seed'
+import type { ActiveState, AppData, LoggedSet, Session, Settings } from './types'
 
 export type Action =
   | { type: 'add-routine'; name: string }
@@ -39,6 +39,10 @@ export type Action =
   | { type: 'start-set' }
   | { type: 'expire-rest'; now: number }
   | { type: 'adjust-rest'; deltaMs: number; now: number }
+  | { type: 'update-settings'; settings: Partial<Settings> }
+  | { type: 'set-session-note'; sessionId: string; note: string }
+  | { type: 'delete-all' }
+  | { type: 'load-snapshot'; data: AppData }
 
 const NAME_LIMIT = 80
 
@@ -76,11 +80,24 @@ export function reducer(state: AppData, action: Action): AppData {
         ),
       }
     }
-    case 'delete-routine':
+    case 'delete-routine': {
+      const removed = state.routines.find((routine) => routine.id === action.routineId)
+      const nextSessions =
+        removed?.isSample === true
+          ? state.sessions.filter(
+              (session) => !(session.isSample && session.routineId === action.routineId),
+            )
+          : state.sessions
+      const activeSessionGone =
+        state.active &&
+        !nextSessions.some((session) => session.id === state.active?.sessionId)
       return {
         ...state,
         routines: state.routines.filter((routine) => routine.id !== action.routineId),
+        sessions: nextSessions,
+        active: activeSessionGone ? null : state.active,
       }
+    }
     case 'add-exercise':
     case 'update-exercise': {
       const name = cleanName(action.name)
@@ -149,6 +166,14 @@ export function reducer(state: AppData, action: Action): AppData {
       return expireRest(state, action.now)
     case 'adjust-rest':
       return adjustRest(state, action.deltaMs, action.now)
+    case 'update-settings':
+      return updateSettings(state, action.settings)
+    case 'set-session-note':
+      return setSessionNote(state, action.sessionId, action.note)
+    case 'delete-all':
+      return createInitialData()
+    case 'load-snapshot':
+      return action.data
     default:
       return state
   }
@@ -409,29 +434,52 @@ function skipExercise(state: AppData): AppData {
 }
 
 function editSet(state: AppData, setId: string, weightKg: number, reps: number): AppData {
-  const active = state.active
-  if (!active) return state
-  const open = openSession(state)
-  if (!open) return state
   const values = commitWeightAndReps(weightKg, reps)
   if (!values) return state
-  const found = findLoggedSet(open.session, setId)
-  if (!found) return state
-  const exercises = open.session.exercises.map((exercise, exerciseIndex) => {
-    if (exerciseIndex !== found.exerciseIndex) return exercise
+
+  const open = openSession(state)
+  if (open) {
+    const active = state.active
+    if (!active) return state
+    const found = findLoggedSet(open.session, setId)
+    if (!found) return state
+    const exercises = open.session.exercises.map((exercise, exerciseIndex) => {
+      if (exerciseIndex !== found.exerciseIndex) return exercise
+      return {
+        ...exercise,
+        sets: exercise.sets.map((set) =>
+          set.id === setId
+            ? { ...set, weightKg: values.weightKg, reps: values.reps, editedAt: new Date().toISOString() }
+            : set,
+        ),
+      }
+    })
     return {
-      ...exercise,
-      sets: exercise.sets.map((set) =>
-        set.id === setId
-          ? { ...set, weightKg: values.weightKg, reps: values.reps, editedAt: new Date().toISOString() }
-          : set,
-      ),
+      ...replaceSession(state, open.index, { ...open.session, exercises }),
+      active,
     }
-  })
-  return {
-    ...replaceSession(state, open.index, { ...open.session, exercises }),
-    active,
   }
+
+  let changed = false
+  const sessions = state.sessions.map((session) => {
+    if (session.finishedAt === undefined) return session
+    const found = findLoggedSet(session, setId)
+    if (!found) return session
+    changed = true
+    const exercises = session.exercises.map((exercise, exerciseIndex) => {
+      if (exerciseIndex !== found.exerciseIndex) return exercise
+      return {
+        ...exercise,
+        sets: exercise.sets.map((set) =>
+          set.id === setId
+            ? { ...set, weightKg: values.weightKg, reps: values.reps, editedAt: new Date().toISOString() }
+            : set,
+        ),
+      }
+    })
+    return { ...session, exercises }
+  })
+  return changed ? { ...state, sessions } : state
 }
 
 function startSet(state: AppData): AppData {
@@ -473,4 +521,38 @@ function adjustRest(state: AppData, deltaMs: number, now: number): AppData {
       restTotalMs: next.restTotalMs,
     },
   }
+}
+
+function updateSettings(state: AppData, patch: Partial<Settings>): AppData {
+  const next = { ...state.settings, ...patch }
+  if (next.unit !== 'kg' && next.unit !== 'lb') return state
+  if (next.reduceMotion !== 'system' && next.reduceMotion !== 'on' && next.reduceMotion !== 'off') {
+    return state
+  }
+  if (
+    typeof next.sound !== 'boolean' ||
+    typeof next.vibration !== 'boolean' ||
+    typeof next.keepScreenAwake !== 'boolean'
+  ) {
+    return state
+  }
+  return { ...state, settings: next }
+}
+
+function setSessionNote(state: AppData, sessionId: string, note: string): AppData {
+  const trimmed = note.trim()
+  let changed = false
+  const sessions = state.sessions.map((session) => {
+    if (session.id !== sessionId || session.finishedAt === undefined) return session
+    changed = true
+    if (!trimmed) {
+      const { note: _removed, ...rest } = session
+      return rest as Session
+    }
+    return { ...session, note: trimmed }
+  })
+  if (!changed) return state
+  let active = state.active
+  if (active?.sessionId === sessionId) active = null
+  return { ...state, sessions, active }
 }

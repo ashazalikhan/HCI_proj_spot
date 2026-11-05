@@ -255,13 +255,41 @@ h1 {
 
 .field span { font-size: 13px; color: var(--text-dim); }
 
-input,
+input:not([type='checkbox']):not([type='radio']):not([type='file']),
 select {
   width: 100%;
   padding: 0 var(--space-3);
   border: 1px solid transparent;
   border-radius: var(--radius-card);
   background: var(--surface-2);
+}
+
+input[type='checkbox'],
+input[type='radio'] {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  min-height: 0;
+  accent-color: var(--accent);
+}
+
+input[type='file'] {
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-card);
+  background: var(--surface-2);
+}
+
+input[type='file']::file-selector-button {
+  margin-right: var(--space-3);
+  padding: 0 var(--space-3);
+  min-height: 36px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
 }
 
 .grid-2,
@@ -604,4 +632,122 @@ html[data-reduce-motion='on'] *::after {
 .outline-button:disabled {
   opacity: 0.35;
   cursor: not-allowed;
+}
+
+.finish-day {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: 17px;
+  margin: 0 0 var(--space-4);
+}
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+  margin: 0 0 var(--space-4);
+}
+
+.stat-grid dt {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.stat-grid dd {
+  margin: var(--space-1) 0 0;
+  font-size: 28px;
+  font-weight: 600;
+}
+
+.history-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.history-row {
+  text-align: left;
+  cursor: pointer;
+  border: 0;
+}
+
+.set-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 15px;
+}
+
+.set-table th,
+.set-table td {
+  padding: var(--space-2) var(--space-2);
+  text-align: left;
+  border-bottom: 1px solid var(--surface-2);
+}
+
+.set-table th {
+  color: var(--text-dim);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.trend-block {
+  margin-top: var(--space-3);
+}
+
+.trend-chart {
+  width: 100%;
+  max-width: 20rem;
+  height: auto;
+  color: var(--text);
+}
+
+.trend-axis {
+  fill: var(--text-dim);
+  font-size: 10px;
+}
+
+.trend-points {
+  list-style: none;
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  font-size: 13px;
+}
+
+.settings-block .field-group {
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.settings-block legend {
+  padding: 0;
+  margin-bottom: var(--space-2);
+  color: var(--text-dim);
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.row-inline {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 48px;
+}
+
+.field textarea {
+  width: 100%;
+  min-height: 5rem;
+  padding: var(--space-3);
+  border: 1px solid var(--text-dim);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  resize: vertical;
 }

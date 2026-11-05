@@ -6,6 +6,7 @@ import { reducer } from './reducer'
 import { createInitialData, defaultSettings } from './seed'
 import { bootFromStorage, DATA_KEY, replaceStoredData, writeBackupCopy } from './storage'
 import type { AppData } from './types'
+import { validateAppData } from './validate'
 
 function saved(name = 'Saved Day'): AppData {
   return {
@@ -173,6 +174,40 @@ describe('units', () => {
     const kg = lbInputToKg(135)
     expect(kg).toBe(Math.round((135 / 2.20462262) * 10000) / 10000)
     expect(displayWeight(kg, 'lb')).toBe('135.0 lb')
+  })
+})
+
+describe('import validation', () => {
+  it('does not write when JSON is invalid', () => {
+    const storage = createMemoryStorage({ initial: { [DATA_KEY]: JSON.stringify(saved()) } })
+    const before = storage.snapshot()[DATA_KEY]
+    const validated = validateAppData('{not json')
+    expect(validated.ok).toBe(false)
+    expect(storage.snapshot()[DATA_KEY]).toBe(before)
+  })
+})
+
+describe('replaceStoredData failure', () => {
+  it('restores spot.v1 when the new write fails after backup', () => {
+    const previous = saved('Previous')
+    const next = saved('Next')
+    const prevRaw = JSON.stringify(previous)
+    const nextRaw = JSON.stringify(next)
+    const storage = createMemoryStorage({
+      initial: {
+        [DATA_KEY]: prevRaw,
+        'spot.v1.backup.unrelated': 'leave-this',
+      },
+    })
+    const baseSet = storage.setItem.bind(storage)
+    storage.setItem = (key: string, value: string) => {
+      if (key === DATA_KEY && value === nextRaw) throw new Error('quota')
+      baseSet(key, value)
+    }
+    const result = replaceStoredData(storage, next, prevRaw)
+    expect(result.ok).toBe(false)
+    expect(storage.snapshot()[DATA_KEY]).toBe(prevRaw)
+    expect(storage.snapshot()['spot.v1.backup.unrelated']).toBe('leave-this')
   })
 })
 

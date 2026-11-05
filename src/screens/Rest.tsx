@@ -98,11 +98,6 @@ export function Rest() {
     clearGoTimeout()
     const key = sessionKeyRef.current
     if (!key) return
-    const reduced = prefersReducedMotion(store.data.settings)
-    if (reduced) {
-      navigateToWorkout()
-      return
-    }
     goPendingRef.current = true
     goTimeoutRef.current = window.setTimeout(() => {
       goTimeoutRef.current = null
@@ -112,17 +107,21 @@ export function Rest() {
       if (window.location.hash.replace(/^#\/?/, '').split('/')[0] !== 'rest') return
       navigateToWorkout()
     }, GO_DELAY_MS)
-  }, [clearGoTimeout, navigateToWorkout, store.data.active?.sessionId, store.data.settings])
+  }, [clearGoTimeout, navigateToWorkout, store.data.active?.sessionId])
 
   const beginGoPresentation = useCallback(
     (exerciseName: string, setNumber: number) => {
       if (editingId) return
-      setShowGo(true)
       const cueKey = `${sessionKeyRef.current ?? ''}-${store.data.active?.lastCommittedSetId ?? ''}`
       playGoCuesOnce(cueKey, exerciseName, setNumber)
+      if (prefersReducedMotion(store.data.settings)) {
+        navigateToWorkout()
+        return
+      }
+      setShowGo(true)
       scheduleGoNavigation()
     },
-    [editingId, playGoCuesOnce, scheduleGoNavigation, store.data.active?.lastCommittedSetId],
+    [editingId, navigateToWorkout, playGoCuesOnce, scheduleGoNavigation, store.data.active?.lastCommittedSetId, store.data.settings],
   )
 
   const handleExpiry = useCallback(

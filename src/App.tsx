@@ -4,10 +4,11 @@ import { CommitToast } from './components/CommitToast'
 import { RestAnnounceProvider } from './components/RestAnnounce'
 import { parseHash, routeTitle, type RouteName } from './router'
 import { Finish } from './screens/Finish'
-import { Later } from './screens/Later'
+import { History } from './screens/History'
 import { Recovery } from './screens/Recovery'
 import { Rest } from './screens/Rest'
 import { Routines } from './screens/Routines'
+import { Settings } from './screens/Settings'
 import { Today } from './screens/Today'
 import { Workout } from './screens/Workout'
 import { useStore } from './state/store'
@@ -55,6 +56,12 @@ export function App() {
             <a href="#/routines" aria-current={route === 'routines' ? 'page' : undefined}>
               Routines
             </a>
+            <a href="#/history" aria-current={route === 'history' ? 'page' : undefined}>
+              History
+            </a>
+            <a href="#/settings" aria-current={route === 'settings' ? 'page' : undefined}>
+              Settings
+            </a>
           </nav>
         </header>
         <div className="sr-only" aria-live="polite">
@@ -68,7 +75,8 @@ export function App() {
           {route === 'workout' ? <Workout /> : null}
           {route === 'rest' ? <Rest /> : null}
           {route === 'finish' ? <Finish /> : null}
-          {route === 'history' || route === 'settings' ? <Later route={route} /> : null}
+          {route === 'history' ? <History /> : null}
+          {route === 'settings' ? <Settings /> : null}
         </main>
       </div>
     </RestAnnounceProvider>
