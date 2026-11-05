@@ -2,7 +2,7 @@ import { createId } from './ids'
 import { draftForCursor } from './history'
 import { cursorFromLoggedSets, unfinishedSessions } from './repair'
 import { createSampleRoutine } from './seed'
-import type { AppData, Session } from './types'
+import type { ActiveState, AppData, LoggedSet, Session } from './types'
 
 export type Action =
   | { type: 'add-routine'; name: string }
@@ -30,6 +30,12 @@ export type Action =
   | { type: 'start-workout'; routineId: string }
   | { type: 'discard-workout' }
   | { type: 'attach-active' }
+  | { type: 'update-draft'; weightKg: number | null; reps: number | null }
+  | { type: 'commit-set' }
+  | { type: 'undo-last-set' }
+  | { type: 'skip-exercise' }
+  | { type: 'edit-set'; setId: string; weightKg: number; reps: number }
+  | { type: 'start-set' }
 
 const NAME_LIMIT = 80
 
@@ -124,9 +130,53 @@ export function reducer(state: AppData, action: Action): AppData {
       return discardWorkout(state)
     case 'attach-active':
       return attachActive(state)
+    case 'update-draft':
+      return updateDraft(state, action.weightKg, action.reps)
+    case 'commit-set':
+      return commitSet(state)
+    case 'undo-last-set':
+      return undoLastSet(state)
+    case 'skip-exercise':
+      return skipExercise(state)
+    case 'edit-set':
+      return editSet(state, action.setId, action.weightKg, action.reps)
+    case 'start-set':
+      return startSet(state)
     default:
       return state
   }
+}
+
+/** Commit boundary: finite kg at or above 0, and a whole rep count of at least 1. */
+export function commitWeightAndReps(
+  weightKg: number | null,
+  reps: number | null,
+): { weightKg: number; reps: number } | null {
+  if (typeof weightKg !== 'number' || !Number.isFinite(weightKg) || weightKg < 0) return null
+  if (typeof reps !== 'number' || !Number.isFinite(reps) || !Number.isInteger(reps) || reps < 1) return null
+  return { weightKg: weightKg === 0 ? 0 : weightKg, reps }
+}
+
+export function commitBlockReason(weightKg: number | null, reps: number | null): string | null {
+  if (commitWeightAndReps(weightKg, reps)) return null
+  const weightOk = typeof weightKg === 'number' && Number.isFinite(weightKg) && weightKg >= 0
+  const repsPresent = typeof reps === 'number' && Number.isFinite(reps)
+  if (!weightOk || !repsPresent) return 'Enter weight and reps'
+  return 'Enter at least 1 rep'
+}
+
+export function findLoggedSet(
+  session: Session,
+  setId: string,
+): { exerciseIndex: number; setIndex: number; set: LoggedSet } | null {
+  for (let exerciseIndex = 0; exerciseIndex < session.exercises.length; exerciseIndex += 1) {
+    const exercise = session.exercises[exerciseIndex]
+    if (!exercise) continue
+    const setIndex = exercise.sets.findIndex((set) => set.id === setId)
+    const set = exercise.sets[setIndex]
+    if (setIndex >= 0 && set) return { exerciseIndex, setIndex, set }
+  }
+  return null
 }
 
 function startWorkout(state: AppData, routineId: string): AppData {
@@ -193,6 +243,202 @@ function attachActive(state: AppData): AppData {
       setIndex: cursor.setIndex,
       phase: 'logging',
       draft: draftForCursor(state, session, cursor.exerciseIndex, cursor.setIndex),
+    },
+  }
+}
+
+function cleanDraftWeight(value: number | null): number | null | undefined {
+  if (value === null) return null
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) return undefined
+  return value === 0 ? 0 : value
+}
+
+function cleanDraftReps(value: number | null): number | null | undefined {
+  if (value === null) return null
+  if (typeof value !== 'number' || !Number.isFinite(value) || !Number.isInteger(value) || value < 0) {
+    return undefined
+  }
+  return value
+}
+
+function openSession(state: AppData): { index: number; session: Session } | null {
+  const active = state.active
+  if (!active) return null
+  const index = state.sessions.findIndex((session) => session.id === active.sessionId)
+  const session = state.sessions[index]
+  if (index < 0 || !session || session.finishedAt !== undefined) return null
+  return { index, session }
+}
+
+function replaceSession(state: AppData, index: number, session: Session): AppData {
+  return {
+    ...state,
+    sessions: state.sessions.map((item, itemIndex) => (itemIndex === index ? session : item)),
+  }
+}
+
+function updateDraft(state: AppData, weightKg: number | null, reps: number | null): AppData {
+  const active = state.active
+  if (!active || active.phase !== 'logging') return state
+  const nextWeight = cleanDraftWeight(weightKg)
+  const nextReps = cleanDraftReps(reps)
+  if (nextWeight === undefined || nextReps === undefined) return state
+  const draft = active.draft
+  if (
+    draft.weightKg === nextWeight &&
+    draft.reps === nextReps &&
+    draft.source === 'edited' &&
+    draft.sourceLabel === undefined
+  ) {
+    return state
+  }
+  return {
+    ...state,
+    active: {
+      ...active,
+      draft: { weightKg: nextWeight, reps: nextReps, source: 'edited' },
+    },
+  }
+}
+
+function commitSet(state: AppData): AppData {
+  const active = state.active
+  if (!active || active.phase !== 'logging') return state
+  const open = openSession(state)
+  if (!open) return state
+  const exercise = open.session.exercises[active.exerciseIndex]
+  if (!exercise) return state
+  if (active.setIndex >= exercise.targetSets || exercise.sets.length !== active.setIndex) return state
+  const values = commitWeightAndReps(active.draft.weightKg, active.draft.reps)
+  if (!values) return state
+
+  const logged: LoggedSet = {
+    id: createId(),
+    weightKg: values.weightKg,
+    reps: values.reps,
+    doneAt: new Date().toISOString(),
+  }
+  const exercises = open.session.exercises.map((item, index) =>
+    index === active.exerciseIndex ? { ...item, sets: [...item.sets, logged] } : item,
+  )
+  const updated: Session = { ...open.session, exercises }
+  const isLastSet = active.setIndex + 1 >= exercise.targetSets
+  const isLastExercise = active.exerciseIndex + 1 >= open.session.exercises.length
+  if (isLastSet && isLastExercise) {
+    const finished: Session = { ...updated, finishedAt: new Date().toISOString() }
+    return { ...replaceSession(state, open.index, finished), active: null }
+  }
+
+  const exerciseIndex = isLastSet ? active.exerciseIndex + 1 : active.exerciseIndex
+  const setIndex = isLastSet ? 0 : active.setIndex + 1
+  const nextState = replaceSession(state, open.index, updated)
+  const nextSession = nextState.sessions[open.index]
+  if (!nextSession) return state
+  const restMs = exercise.restSeconds * 1000
+  const nextActive: ActiveState = {
+    sessionId: updated.id,
+    exerciseIndex,
+    setIndex,
+    phase: 'resting',
+    restEndsAt: Date.now() + restMs,
+    restTotalMs: restMs,
+    lastCommittedSetId: logged.id,
+    draft: draftForCursor(nextState, nextSession, exerciseIndex, setIndex),
+  }
+  return { ...nextState, active: nextActive }
+}
+
+function undoLastSet(state: AppData): AppData {
+  const active = state.active
+  if (!active?.lastCommittedSetId) return state
+  const open = openSession(state)
+  if (!open) return state
+  const found = findLoggedSet(open.session, active.lastCommittedSetId)
+  if (!found) return state
+  const exercise = open.session.exercises[found.exerciseIndex]
+  if (!exercise || found.setIndex !== exercise.sets.length - 1) return state
+  const exercises = open.session.exercises.map((item, index) =>
+    index === found.exerciseIndex ? { ...item, sets: item.sets.slice(0, -1) } : item,
+  )
+  const updated: Session = { ...open.session, exercises }
+  const nextState = replaceSession(state, open.index, updated)
+  return {
+    ...nextState,
+    active: {
+      sessionId: updated.id,
+      exerciseIndex: found.exerciseIndex,
+      setIndex: found.setIndex,
+      phase: 'logging',
+      draft: {
+        weightKg: found.set.weightKg,
+        reps: found.set.reps,
+        source: 'edited',
+      },
+    },
+  }
+}
+
+function skipExercise(state: AppData): AppData {
+  const active = state.active
+  if (!active || active.phase !== 'logging') return state
+  const open = openSession(state)
+  if (!open) return state
+  const nextIndex = active.exerciseIndex + 1
+  if (nextIndex >= open.session.exercises.length) {
+    const anySets = open.session.exercises.some((exercise) => exercise.sets.length > 0)
+    if (!anySets) return discardWorkout(state)
+    const finished: Session = { ...open.session, finishedAt: new Date().toISOString() }
+    return { ...replaceSession(state, open.index, finished), active: null }
+  }
+  const nextActive: ActiveState = {
+    sessionId: open.session.id,
+    exerciseIndex: nextIndex,
+    setIndex: 0,
+    phase: 'logging',
+    draft: draftForCursor(state, open.session, nextIndex, 0),
+  }
+  if (active.lastCommittedSetId) nextActive.lastCommittedSetId = active.lastCommittedSetId
+  return { ...state, active: nextActive }
+}
+
+function editSet(state: AppData, setId: string, weightKg: number, reps: number): AppData {
+  const active = state.active
+  if (!active) return state
+  const open = openSession(state)
+  if (!open) return state
+  const values = commitWeightAndReps(weightKg, reps)
+  if (!values) return state
+  const found = findLoggedSet(open.session, setId)
+  if (!found) return state
+  const exercises = open.session.exercises.map((exercise, exerciseIndex) => {
+    if (exerciseIndex !== found.exerciseIndex) return exercise
+    return {
+      ...exercise,
+      sets: exercise.sets.map((set) =>
+        set.id === setId
+          ? { ...set, weightKg: values.weightKg, reps: values.reps, editedAt: new Date().toISOString() }
+          : set,
+      ),
+    }
+  })
+  return {
+    ...replaceSession(state, open.index, { ...open.session, exercises }),
+    active,
+  }
+}
+
+function startSet(state: AppData): AppData {
+  const active = state.active
+  if (!active || (active.phase !== 'resting' && active.phase !== 'rest-over')) return state
+  return {
+    ...state,
+    active: {
+      sessionId: active.sessionId,
+      exerciseIndex: active.exerciseIndex,
+      setIndex: active.setIndex,
+      phase: 'logging',
+      ...(active.lastCommittedSetId ? { lastCommittedSetId: active.lastCommittedSetId } : {}),
+      draft: active.draft,
     },
   }
 }

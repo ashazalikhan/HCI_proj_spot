@@ -72,6 +72,13 @@ export function repairAppData(data: AppData): RepairResult {
   }
 }
 
+export function resumeHash(data: AppData): '#/rest' | '#/workout' {
+  const session = unfinishedSessions(data)[0]
+  if (!session || data.active?.sessionId !== session.id) return '#/workout'
+  if (data.active.phase === 'resting' || data.active.phase === 'rest-over') return '#/rest'
+  return '#/workout'
+}
+
 export function resumeLabel(data: AppData): string {
   const session = unfinishedSessions(data)[0]
   if (!session) return 'Resume'

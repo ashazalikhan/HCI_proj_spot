@@ -37,7 +37,7 @@ Scale: 13 / 15 / 17 / 22 / 28 / 40 / rest-numerals min(30vw, 220px)
 
 - **Targets:** >= 48px on touch. Primary action full-width, bottom, min 56px tall.
 - **Sheet, not modal:** value editing and set editing slide up from bottom; the workout stays visible behind; swipe-down or Escape closes.
-- **Steppers:** - and + flank the value; hold repeats; weight steps 2.5kg (0.5kg via sheet's fine control); reps step 1.
+- **Steppers:** - and + flank the value; hold repeats; weight steps 2.5 kg on the main screen and in the editing sheet; reps step 1.
 - **Undo and correction:** after each committed set a toast with an Undo action appears (role=status, at least 6 seconds, paused while hovered or focused, dismissible, keyboard-reachable). It is a convenience, not the only path: the last committed set stays visible as an editable row ("Last set: 60 kg x 8 - Edit") on both Workout and Rest screens, and any set can be edited from History. No confirmation dialogs mid-workout.
 - **Transitions:** 150-250ms ease-out transform/opacity only. State change Workout<->Rest is a 200ms vertical slide - the two modes feel like two physical positions of one object.
 - **Reduced motion:** when on (system or toggle), all transitions become instant cuts. No exceptions, including the rest ring.

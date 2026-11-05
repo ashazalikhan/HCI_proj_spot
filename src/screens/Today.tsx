@@ -1,34 +1,67 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
+import { SampleMark } from '../components/SampleMark'
 import { displayWeight, formatSpotDate, formatSpotDateString } from '../format'
 import { lastLoggedSet, latestFinishedSession } from '../state/history'
-import { preferredRoutineId, resumeLabel, unfinishedSessions } from '../state/repair'
+import { preferredRoutineId, resumeHash, resumeLabel, unfinishedSessions } from '../state/repair'
 import { useStore } from '../state/store'
 
 export function Today() {
   const store = useStore()
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [dayOpen, setDayOpen] = useState(false)
+  const dayButton = useRef<HTMLButtonElement>(null)
+  const dayList = useRef<HTMLUListElement>(null)
   const routineId = preferredRoutineId(store.data, selectedId)
   const routine = store.data.routines.find((item) => item.id === routineId) ?? null
   const open = unfinishedSessions(store.data)[0] ?? null
   const finished = routine ? latestFinishedSession(store.data.sessions, routine.id) : null
 
+  useEffect(() => {
+    if (!dayOpen) return
+    const selected = dayList.current?.querySelector<HTMLButtonElement>('[aria-selected="true"]')
+    selected?.focus()
+  }, [dayOpen])
+
   function resume() {
     const result = store.dispatch({ type: 'attach-active' })
-    if (unfinishedSessions(result).length === 1) window.location.hash = '#/workout'
+    if (unfinishedSessions(result).length === 1) window.location.hash = resumeHash(result)
   }
 
   function start() {
     if (!routine || routine.exercises.length === 0) return
     const result = store.dispatch({ type: 'start-workout', routineId: routine.id })
     const started = unfinishedSessions(result).some((session) => session.routineId === routine.id)
-    if (started) window.location.hash = '#/workout'
+    if (started) window.location.hash = resumeHash(result)
+  }
+
+  function onDayKey(event: KeyboardEvent<HTMLUListElement>) {
+    const buttons = [...event.currentTarget.querySelectorAll('button')]
+    const index = buttons.indexOf(document.activeElement as HTMLButtonElement)
+    if (event.key === 'ArrowDown') {
+      event.preventDefault()
+      buttons[Math.min(buttons.length - 1, index + 1)]?.focus()
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault()
+      buttons[Math.max(0, index - 1)]?.focus()
+    } else if (event.key === 'Home') {
+      event.preventDefault()
+      buttons[0]?.focus()
+    } else if (event.key === 'End') {
+      event.preventDefault()
+      buttons[buttons.length - 1]?.focus()
+    } else if (event.key === 'Escape') {
+      event.preventDefault()
+      setDayOpen(false)
+      dayButton.current?.focus()
+    }
   }
 
   return (
     <>
       <p className="kicker">{formatSpotDate(new Date())}</p>
-      <h1 id="screen-title" tabIndex={-1}>
-        {routine ? routine.name : 'Today'}
+      <h1 id="screen-title" className="today-title" tabIndex={-1}>
+        <span>{routine ? routine.name : 'Today'}</span>
+        {routine?.isSample ? <SampleMark /> : null}
       </h1>
       {store.repairNotice ? (
         <p className="notice" role="status">
@@ -44,21 +77,50 @@ export function Today() {
         </div>
       ) : (
         <div className="stack">
-          {routine?.isSample ? <p className="dim">Sample Push Day - try it, edit it, delete it.</p> : null}
+          {routine?.isSample ? <p className="dim">try it, edit it, delete it.</p> : null}
           {store.data.routines.length > 1 ? (
-            <label className="field">
-              <span>Day</span>
-              <select
-                value={routine?.id ?? ''}
-                onChange={(event) => setSelectedId(event.target.value)}
+            <div className="day-switch">
+              <button
+                ref={dayButton}
+                className="ghost"
+                type="button"
+                aria-label="Day"
+                aria-expanded={dayOpen}
+                aria-controls="day-list"
+                onClick={() => setDayOpen((openDay) => !openDay)}
               >
-                {store.data.routines.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.isSample ? `${item.name} (SAMPLE)` : item.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+                Switch day
+              </button>
+              {dayOpen ? (
+                <ul
+                  id="day-list"
+                  ref={dayList}
+                  className="day-list"
+                  role="listbox"
+                  aria-label="Day"
+                  onKeyDown={onDayKey}
+                >
+                  {store.data.routines.map((item) => (
+                    <li key={item.id}>
+                      <button
+                        className="row"
+                        type="button"
+                        role="option"
+                        aria-selected={item.id === routine?.id}
+                        onClick={() => {
+                          setSelectedId(item.id)
+                          setDayOpen(false)
+                          dayButton.current?.focus()
+                        }}
+                      >
+                        <span className="ex-name">{item.name}</span>
+                        {item.isSample ? <SampleMark /> : null}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
           ) : null}
           {!routine ? (
             <p>This workout day was deleted. The in-progress session is still here.</p>

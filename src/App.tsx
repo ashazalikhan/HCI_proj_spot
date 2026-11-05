@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Banners } from './components/Banners'
+import { CommitToast } from './components/CommitToast'
 import { parseHash, routeTitle, type RouteName } from './router'
+import { Finish } from './screens/Finish'
 import { Later } from './screens/Later'
 import { Recovery } from './screens/Recovery'
+import { Rest } from './screens/Rest'
 import { Routines } from './screens/Routines'
 import { Today } from './screens/Today'
 import { Workout } from './screens/Workout'
@@ -22,7 +25,11 @@ export function App() {
   }, [])
 
   useEffect(() => {
-    document.getElementById('screen-title')?.focus()
+    document.documentElement.dataset.reduceMotion = store.data.settings.reduceMotion
+  }, [store.data.settings.reduceMotion])
+
+  useEffect(() => {
+    document.getElementById('screen-title')?.focus({ preventScroll: true })
   }, [route, store.recovery])
 
   if (store.recovery) return <Recovery />
@@ -46,13 +53,14 @@ export function App() {
         {title}
       </div>
       <Banners />
+      <CommitToast />
       <main>
         {route === 'today' ? <Today /> : null}
         {route === 'routines' ? <Routines /> : null}
         {route === 'workout' ? <Workout /> : null}
-        {route === 'rest' || route === 'finish' || route === 'history' || route === 'settings' ? (
-          <Later route={route} />
-        ) : null}
+        {route === 'rest' ? <Rest /> : null}
+        {route === 'finish' ? <Finish /> : null}
+        {route === 'history' || route === 'settings' ? <Later route={route} /> : null}
       </main>
     </div>
   )

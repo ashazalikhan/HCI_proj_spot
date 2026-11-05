@@ -114,7 +114,7 @@ interface Settings {
 
 **Sample data rule.** The sample day has `isSample: true`; sessions started from it copy that flag. Sample sessions are excluded from pre-fill, "vs last time" comparisons and per-exercise trends. History lists them under a clear SAMPLE tag so they can be deleted. Deleting the sample routine never touches real sessions.
 
-**Unit rules.** Stored values are always kg. `unit: 'lb'` only changes display and input: displayed lb = kg x 2.20462262, shown to 1 decimal; typed lb is converted back to kg and kept at full precision (4 decimals) so a value round-trips without drifting. Stepper sizes: kg mode 2.5 (fine 0.5); lb mode 5 (fine 1). Switching units never rewrites stored data. Volume is computed in kg and converted for display.
+**Unit rules.** Stored values are always kg. `unit: 'lb'` only changes display and input: displayed lb = kg x 2.20462262, shown to 1 decimal; typed lb is converted back to kg and kept at full precision (4 decimals) so a value round-trips without drifting. Stepper sizes: kg mode 2.5 on the main screen and in the editing sheet; lb mode 5 (fine 1). Switching units never rewrites stored data. Volume is computed in kg and converted for display.
 
 **Resume rule.** On load, if `active` exists and its session exists without `finishedAt`, route to that session's phase. If `active` points to a missing or finished session, clear it and show a one-line notice. If `phase` is `resting` and `restEndsAt` has passed, treat it as `rest-over` (see section 4).
 

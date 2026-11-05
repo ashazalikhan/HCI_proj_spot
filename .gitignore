@@ -4,6 +4,6 @@ dist/
 .env.*
 *.local
 .DS_Store
-spot-backup.json
+spot-backup*.json
 spot-unsaved*.json
 spot-raw-*.json
