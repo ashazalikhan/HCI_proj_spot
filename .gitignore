@@ -7,3 +7,4 @@ dist/
 spot-backup*.json
 spot-unsaved*.json
 spot-raw-*.json
+.vercel
