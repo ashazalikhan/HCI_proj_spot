@@ -162,7 +162,11 @@ function RoutineEditor({ routine, onBack }: { routine: Routine; onBack: () => vo
       <div className="dock">
         {confirmDelete ? (
           <div className="card stack">
-            <p>Delete this day? Past sessions are kept.</p>
+            <p>
+              {routine.isSample
+                ? 'Delete this sample day? Its SAMPLE sessions are deleted with it.'
+                : 'Delete this day? Past sessions are kept.'}
+            </p>
             <button
               className="danger"
               type="button"
